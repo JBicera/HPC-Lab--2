@@ -1,0 +1,13 @@
+collective,size,param,target,minimum
+broadcast_tree,small,0,7.25E-07,1.32E-06
+broadcast_sag,small,0,1.00E-05,2.01E-05
+allgather_bucket,small,3,8.50E-06,1.60E-05
+reduce_tree,small,3,1.10E-05,2.45E-05
+gather_tree,small,3,3.50E-06,7.50E-06
+scatter_tree,small,3,1.85E-06,3.93E-06
+broadcast_tree,large,12,6.00E-05,1.37E-04
+broadcast_sag,large,12,6.50E-05,1.30E-04
+allgather_bucket,large,15,2.25E-04,5.50E-04
+reduce_tree,large,15,4.50E-04,1.01E-03
+gather_tree,large,15,1.70E-04,3.50E-04
+scatter_tree,large,15,9.50E-05,1.89E-04

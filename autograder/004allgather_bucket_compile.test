@@ -1,0 +1,6 @@
+NAME:allgather_bucker_compile
+BINARY:
+POINTVAL:0
+TYPE:compile
+INPUT:allgather_bucket
+OUTPUT:

@@ -1,0 +1,21 @@
+#!/bin/bash
+#SBATCH -J lab2_multi
+#SBATCH --partition ice-cpu,coc-cpu
+#SBATCH -C "intel&core24"
+#SBATCH -N 4 --ntasks-per-node=2
+#SBATCH --exclusive
+#SBATCH --mem=0
+#SBATCH --time=00:10:00
+#SBATCH --error=job.%J.err
+#SBATCH --output=job.%J.out
+
+#Setup Environment
+cd $SLURM_SUBMIT_DIR
+source pace_env.sh
+
+mkdir -p results 2>/dev/null
+
+#PACE handles the number of threads for you (no need for -np #)
+python3 ./speedtest.py > results/speedtest.tsv
+
+exit 0

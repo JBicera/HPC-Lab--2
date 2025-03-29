@@ -1,0 +1,6 @@
+NAME:reduce_tree_execution_public
+BINARY:
+POINTVAL:8
+TYPE:mpi
+INPUT:-np 4 --timeout 20 ./reduce_tree
+OUTPUT:

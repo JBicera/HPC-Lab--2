@@ -1,0 +1,6 @@
+NAME:allgather_bucket_execution_public
+BINARY:
+POINTVAL:8
+TYPE:mpi
+INPUT:-np 4 --timeout 20 ./allgather_bucket
+OUTPUT:
