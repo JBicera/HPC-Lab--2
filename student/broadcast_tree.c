@@ -17,7 +17,8 @@ int GT_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm 
 	MPI_Request request;
 
 	
-	while (bitmask < P) {
+	while (bitmask < P) 
+	{
 		int partner = rank ^ bitmask; // XOR to find partner in current stage
 		
 		// Check if this process is in the sending part of the tree (rank isn't in bitmask set)
