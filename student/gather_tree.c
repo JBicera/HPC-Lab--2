@@ -8,65 +8,60 @@ int GT_Gather(void *sendbuf, int sendcount, MPI_Datatype sendtype,
               void *recvbuf, int recvcount, MPI_Datatype recvtype,
               int root, MPI_Comm comm) {
     assert(sendtype == MPI_INT && recvtype == MPI_INT);
-    assert(root == 0);
-    
-    /* Your code here (Do not just call MPI_Gather) */
-    
+    assert(root == 0);  
+
     int rank, P;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &P);
     MPI_Status status;
     MPI_Request request;
 
-    // Allocate buffers
-    int *localBuffer = malloc(P * sendcount * sizeof(int));  // Buffer that accumulates all data
-    int *recvTemp = malloc(P * sendcount * sizeof(int));     // Temporary buffer for received data
+    // Allocate  temporary buffer to accumulate all data
+    int *accumValues = malloc(P * sendcount * sizeof(int));
 
-    // Initialize localBuffer with this process's own data
-    memcpy(localBuffer, sendbuf, sendcount * sizeof(int));
-    int totalElements = sendcount; // Number of elements currently stored in localBuffer
+    // Each process starts by copying its local data into the beginning of its accumulation buffer.
+    // (We assume sendcount is 1 in your case, but this code works for any sendcount.)
+    memcpy(accumValues, sendbuf, sendcount * sizeof(int));
+
+    // currentCount tracks the number of elements accumulated so far.
+    int currentCount = sendcount;  
 
     int bitmask = 1;
 
     while (bitmask < P) 
     {
-        int partner = rank ^ bitmask;  // Compute partner rank
+        int partner = rank ^ bitmask;
 
         if (partner >= P) 
         {
             bitmask <<= 1;
             continue;
         }
+        // Determine the amount of data to exchange this round for both senders and receivers
+        int blockSize = bitmask * sendcount;  
 
-        if (rank & bitmask) 
+        if (rank & bitmask)
         {
-            // Sender: Send localBuffer to partner
-            MPI_Isend(localBuffer, totalElements, MPI_INT, partner, 0, comm, &request);
+            // Send entire accumulated buffer (of size currentCount) to its partner.
+            MPI_Isend(accumValues, currentCount, MPI_INT, partner, 0, comm, &request);
             MPI_Wait(&request, MPI_STATUS_IGNORE);
-            break;  // Once sent, the process is done
+            break;
         } 
         else 
         {
-            // Receiver: Receive data into recvTemp
-            int receivedElements;
-            MPI_Irecv(recvTemp, P * sendcount, MPI_INT, partner, 0, comm, &request);
+            // Receive exactly blockSize elements from its partner and appends them at the currentCount offset in accumValues
+            MPI_Irecv(accumValues + currentCount, blockSize, MPI_INT, partner, 0, comm, &request);
             MPI_Wait(&request, &status);
-            MPI_Get_count(&status, MPI_INT, &receivedElements);
-
-            // Append received data into localBuffer
-            memcpy(localBuffer + totalElements, recvTemp, receivedElements * sizeof(int));
-            totalElements += receivedElements;  // Update total element count
+            currentCount += blockSize;
         }
 
         bitmask <<= 1;
     }
 
-    // Root process copies the final gathered data into recvbuf from localBuffer
-    if (rank == root) {
-        memcpy(recvbuf, localBuffer, totalElements * sizeof(int));
-    }
+    // Copy accumValues to root's recvbuf
+    if (rank == root)
+        memcpy(recvbuf, accumValues, P * sendcount * sizeof(int));
 
-    free(localBuffer);
-    free(recvTemp);
+    free(accumValues);
     return MPI_SUCCESS;
 }
