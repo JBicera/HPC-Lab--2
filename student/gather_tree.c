@@ -14,7 +14,6 @@ int GT_Gather(void *sendbuf, int sendcount, MPI_Datatype sendtype,
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &P);
     MPI_Status status;
-    MPI_Request request;
 
     // Allocate  temporary buffer to accumulate all data
     int *accumValues = malloc(P * sendcount * sizeof(int));
@@ -39,16 +38,14 @@ int GT_Gather(void *sendbuf, int sendcount, MPI_Datatype sendtype,
             if(partner < P)
             {
                 // Send entire accumulated buffer (of size currentCount) to its partner.
-                MPI_Isend(accumValues, currentCount, MPI_INT, partner, 0, comm, &request);
-                MPI_Wait(&request, MPI_STATUS_IGNORE);
+                MPI_Send(accumValues, currentCount, MPI_INT, partner, 0, comm);
                 break;
             }
         } 
         else if(partner < P)
         {
             // Receive exactly blockSize elements from its partner and appends them at the currentCount offset in accumValues
-            MPI_Irecv(accumValues + currentCount, blockSize, MPI_INT, partner, 0, comm, &request);
-            MPI_Wait(&request, &status);
+            MPI_Recv(accumValues + currentCount, blockSize, MPI_INT, partner, 0, comm, &status);
             currentCount += blockSize;
         }
 
