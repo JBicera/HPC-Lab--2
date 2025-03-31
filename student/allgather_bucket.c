@@ -2,7 +2,6 @@
 #include <mpi.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 int GT_Allgather(void *sendbuf, 
                   int sendcount,
@@ -47,6 +46,7 @@ int GT_Allgather(void *sendbuf,
         curi -= 1;
         if(curi < 0)
             curi = P-1;
+
         // Receive a block from previous process
         MPI_Irecv(intRecv + curi * sendcount, sendcount, MPI_INT, prev, 0, comm, &recvRequest);
         

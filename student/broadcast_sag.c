@@ -1,64 +1,63 @@
 #include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <mpi.h>
 
-
 int GT_Scatter(void *sendbuf, int sendcount, MPI_Datatype sendtype,
                void *recvbuf, int recvcount, MPI_Datatype recvtype,
-               int root, MPI_Comm comm) 
-{
-  assert(sendtype == MPI_INT && recvtype == MPI_INT);
-  assert(root == 0);
+               int root, MPI_Comm comm) {
+    assert(sendtype == MPI_INT && recvtype == MPI_INT);
+    assert(root == 0);
 
-  int rank, P;
-  MPI_Comm_rank(comm, &rank);
-  MPI_Comm_size(comm, &P);
-  MPI_Request request;
+    int rank, P;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &P);
+    MPI_Request request;
     
+    // Allocate tempbuffer that can hold all of the data
+    int *tempBuffer = malloc(P * sendcount * sizeof(int));
     
-  int *tempBuffer = malloc(P * sendcount * sizeof(int));
-  if (rank == root) 
-  {
-      memcpy(tempBuffer, sendbuf, P * sendcount * sizeof(int));  // Copy the full sendbuf into tempBuffer
-      int offset = rank * sendcount;
-      memcpy(recvbuf, tempBuffer + offset, recvcount * sizeof(int));
-  }
-
-
-  int bitmask = 1;
-  while (bitmask < P) 
-  {
-    int partner = rank ^ bitmask;  // XOR finds partner
-
-    // Check if this process is in the sending part of the tree (rank isn't in bitmask set)
-		if (!(rank & bitmask)) 
-		{
-			// This process sends its data and then exits.
-			if (partner < P) 
-      {
-        MPI_Isend(tempBuffer, P * sendcount, MPI_INT, partner, 0, comm, &request);
-        MPI_Wait(&request, MPI_STATUS_IGNORE); // Ensure data is sent
-      }
-		}
-		// If on receiving part (rank is in bitmask set)
-		else if (partner < P) 
-		{
-			// This process receives data from its partner and adds it.
-			MPI_Irecv(tempBuffer, P * sendcount, MPI_INT, partner, 0, comm, &request);
-			MPI_Wait(&request, MPI_STATUS_IGNORE); // Ensure data is received
-      // Calculate the starting offset based on the rank
-      int offset = rank * sendcount;
-
-      // Extract the appropriate slice of data
-      memcpy(recvbuf, tempBuffer + offset, recvcount * sizeof(int));
+    if (rank == root) 
+    {
+        memcpy(tempBuffer, sendbuf, P * sendcount * sizeof(int));  // Copy the full sendbuf into tempBuffer
+        int offset = rank * sendcount;
+        memcpy(recvbuf, tempBuffer + offset, recvcount * sizeof(int)); // Copy needed data into root's own recvbuf (final)
     }
 
-    bitmask <<= 1;
-  }
-  free(tempBuffer);
-  return MPI_SUCCESS;
+
+    int bitmask = 1;
+
+    while (bitmask < P) 
+    {
+        int partner = rank ^ bitmask;  // XOR to find partner in current stage
+
+		if (!(rank & bitmask)) 
+		{
+			// Node sends all of its data from tempBuffer to next node (Basically a broadcast)
+			if (partner < P) 
+            {
+                MPI_Isend(tempBuffer, P * sendcount, MPI_INT, partner, 0, comm, &request);
+                MPI_Wait(&request, MPI_STATUS_IGNORE); // Ensure data is sent
+            }
+		}
+		else if (partner < P) 
+		{
+			// Receives data from its partner 
+			MPI_Irecv(tempBuffer, P * sendcount, MPI_INT, partner, 0, comm, &request);
+			MPI_Wait(&request, MPI_STATUS_IGNORE);
+
+            // Calculate the starting offset based on the node's rank
+            int offset = rank * sendcount;
+
+            // Extract the appropriate slice of data and copy into recvbuf
+            memcpy(recvbuf, tempBuffer + offset, recvcount * sizeof(int));
+        }
+
+        bitmask <<= 1;
+    }
+    
+    free(tempBuffer);
+    return MPI_SUCCESS;
 }
 
 
@@ -105,6 +104,7 @@ int GT_Allgather(void *sendbuf,
         curi -= 1;
         if(curi < 0)
             curi = P-1;
+
         // Receive a block from previous process
         MPI_Irecv(intRecv + curi * sendcount, sendcount, MPI_INT, prev, 0, comm, &recvRequest);
         
@@ -116,6 +116,7 @@ int GT_Allgather(void *sendbuf,
 
     return MPI_SUCCESS;
 }
+
 
 
 
@@ -132,9 +133,8 @@ int GT_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm 
     // Allocate a temporary buffer for the scatter phase (per process chunk)
     void *recvbuf = malloc(perProcess * sizeof(int));
     
-    // Scatter data from the root process to all processes.
-    // Each process will receive 'perProcess' elements.
-    GT_Scatter(buffer, perProcess, datatype, recvbuf, perProcess, datatype, root, comm);
+    // Scatter data from the root process to all processes
+    GT_Scatter(buffer, perProcess, datatype, recvbuf, perProcess, datatype, root, comm); // Each process will receive 'perProcess' elements
 
     // Ensure scatter is complete
     MPI_Barrier(comm);
@@ -146,7 +146,7 @@ int GT_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm 
     // Each process contributes perProcess elements; the total gathered is count number of elements
     GT_Allgather(recvbuf, perProcess, datatype, gatherBuffer, perProcess, datatype, comm);
 
-    // Copy the final gathered result from gatherBuffer into buffer.
+    // Copy the final gathered result from gatherBuffer into buffer
     memcpy(buffer, gatherBuffer, count * sizeof(int));
 
     free(gatherBuffer);

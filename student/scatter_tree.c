@@ -15,44 +15,48 @@ int GT_Scatter(void *sendbuf, int sendcount, MPI_Datatype sendtype,
     MPI_Comm_size(comm, &P);
     MPI_Request request;
     
-    
+    // Allocate tempbuffer that can hold all of the data
     int *tempBuffer = malloc(P * sendcount * sizeof(int));
-    if (rank == root) {
+
+    if (rank == root) 
+    {
         memcpy(tempBuffer, sendbuf, P * sendcount * sizeof(int));  // Copy the full sendbuf into tempBuffer
         int offset = rank * sendcount;
-        memcpy(recvbuf, tempBuffer + offset, recvcount * sizeof(int));
+        memcpy(recvbuf, tempBuffer + offset, recvcount * sizeof(int)); // Copy needed data into root's own recvbuf (final)
     }
 
 
     int bitmask = 1;
+
     while (bitmask < P) 
     {
-        int partner = rank ^ bitmask;  // XOR finds partner
+        int partner = rank ^ bitmask;  // XOR to find partner in current stage
 
-        // Check if this process is in the sending part of the tree (rank isn't in bitmask set)
 		if (!(rank & bitmask)) 
 		{
-			// This process sends its data and then exits.
-			if (partner < P) {
+			// Node sends all of its data from tempBuffer to next node (Basically a broadcast)
+			if (partner < P) 
+            {
                 MPI_Isend(tempBuffer, P * sendcount, MPI_INT, partner, 0, comm, &request);
                 MPI_Wait(&request, MPI_STATUS_IGNORE); // Ensure data is sent
             }
 		}
-		// If on receiving part (rank is in bitmask set)
 		else if (partner < P) 
 		{
-			// This process receives data from its partner and adds it.
+			// Receives data from its partner 
 			MPI_Irecv(tempBuffer, P * sendcount, MPI_INT, partner, 0, comm, &request);
-			MPI_Wait(&request, MPI_STATUS_IGNORE); // Ensure data is received
-            // Calculate the starting offset based on the rank
+			MPI_Wait(&request, MPI_STATUS_IGNORE);
+
+            // Calculate the starting offset based on the node's rank
             int offset = rank * sendcount;
 
-            // Extract the appropriate slice of data
+            // Extract the appropriate slice of data and copy into recvbuf
             memcpy(recvbuf, tempBuffer + offset, recvcount * sizeof(int));
         }
 
         bitmask <<= 1;
     }
+    
     free(tempBuffer);
     return MPI_SUCCESS;
 }

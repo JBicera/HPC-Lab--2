@@ -10,6 +10,7 @@ int GT_Gather(void *sendbuf, int sendcount, MPI_Datatype sendtype,
     assert(sendtype == MPI_INT && recvtype == MPI_INT);
     assert(root == 0);  
 
+    /* Your code here (Do not just call MPI_Gather) */
     int rank, P;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &P);
@@ -21,14 +22,14 @@ int GT_Gather(void *sendbuf, int sendcount, MPI_Datatype sendtype,
     // Each process starts by copying its local data into the beginning of its accumulation buffer
     memcpy(accumValues, sendbuf, sendcount * sizeof(int));
 
-    // currentCount tracks the number of elements accumulated so far.
+    // Initialize currentCount to track the number of elements accumulated so far
     int currentCount = sendcount;  
 
     int bitmask = 1;
 
     while (bitmask < P) 
     {
-        int partner = rank ^ bitmask;
+        int partner = rank ^ bitmask; // XOR to find partner in current stage 
         
         // Determine the amount of data to exchange this round for both senders and receivers
         int blockSize = bitmask * sendcount;  
