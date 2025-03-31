@@ -79,6 +79,7 @@ int GT_Allgather(void *sendbuf,
 
     int *intRecv = (int *)recvbuf;
     int *intSend = (int *)sendbuf;
+    
     // Copy its own data into its designated slot
     memcpy(intRecv + rank * sendcount, intSend, sendcount * sizeof(int));
 

@@ -19,8 +19,7 @@ int GT_Gather(void *sendbuf, int sendcount, MPI_Datatype sendtype,
     // Allocate  temporary buffer to accumulate all data
     int *accumValues = malloc(P * sendcount * sizeof(int));
 
-    // Each process starts by copying its local data into the beginning of its accumulation buffer.
-    // (We assume sendcount is 1 in your case, but this code works for any sendcount.)
+    // Each process starts by copying its local data into the beginning of its accumulation buffer
     memcpy(accumValues, sendbuf, sendcount * sizeof(int));
 
     // currentCount tracks the number of elements accumulated so far.
@@ -31,23 +30,21 @@ int GT_Gather(void *sendbuf, int sendcount, MPI_Datatype sendtype,
     while (bitmask < P) 
     {
         int partner = rank ^ bitmask;
-
-        if (partner >= P) 
-        {
-            bitmask <<= 1;
-            continue;
-        }
+        
         // Determine the amount of data to exchange this round for both senders and receivers
         int blockSize = bitmask * sendcount;  
 
         if (rank & bitmask)
         {
-            // Send entire accumulated buffer (of size currentCount) to its partner.
-            MPI_Isend(accumValues, currentCount, MPI_INT, partner, 0, comm, &request);
-            MPI_Wait(&request, MPI_STATUS_IGNORE);
-            break;
+            if(partner < P)
+            {
+                // Send entire accumulated buffer (of size currentCount) to its partner.
+                MPI_Isend(accumValues, currentCount, MPI_INT, partner, 0, comm, &request);
+                MPI_Wait(&request, MPI_STATUS_IGNORE);
+                break;
+            }
         } 
-        else 
+        else if(partner < P)
         {
             // Receive exactly blockSize elements from its partner and appends them at the currentCount offset in accumValues
             MPI_Irecv(accumValues + currentCount, blockSize, MPI_INT, partner, 0, comm, &request);
